@@ -1,4 +1,3 @@
-
 const sampleBooks = [
   {id: 1, title: 'The Midnight Library', author: 'Matt Haig', year: 2020, status: 'Available', isbn: '978-1786892707', category: 'Fiction', description: 'A novel about all the choices that go into a life well lived.', borrowedBy: null},
   {id: 2, title: 'Project Hail Mary', author: 'Andy Weir', year: 2021, status: 'Borrowed', isbn: '978-0593135204', category: 'Science Fiction', description: 'A lone astronaut must save the earth from disaster...', borrowedBy: 'John Doe'},
@@ -570,4 +569,3 @@ function setupEventListeners() {
 
 loadData();
 setupEventListeners();
-refreshUI();
