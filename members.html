@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mike's Library System - Members</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header>
+        <div class="logo">
+            <i class="fas fa-book-reader logo-icon"></i>
+            <div class="logo-text">Mike's Library</div>
+        </div>
+
+        <button class="hamburger" id="hamburgerBtn">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        <nav>
+            <ul>
+                <li><a href="index.html" class="nav-link" data-section="dashboard">Dashboard</a></li>
+                <li><a href="books.html" class="nav-link" data-section="books">Books</a></li>
+                <li><a href="members.html" class="nav-link active" data-section="members">Members</a></li>
+                <li><a href="report.html" class="nav-link" data-section="reports">Reports</a></li>
+            </ul>
+        </nav>
+        <div class="user-actions">
+            <button class="btn btn-outline" id="notificationsBtn">
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge">3</span>
+            </button>
+            <button id="logoutBtn" class="btn btn-primary">Logout</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Main</div>
+                <a class="sidebar-link" data-section="dashboard">
+                    <i class="fas fa-home"></i><span>Dashboard</span>
+                </a>
+                <a class="sidebar-link" data-section="books">
+                    <i class="fas fa-book"></i><span>Books Catalog</span>
+                </a>
+                <a class="sidebar-link active" data-section="members">
+                    <i class="fas fa-users"></i><span>Members</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Management</div>
+                <a class="sidebar-link" id="addBookSidebarBtn">
+                    <i class="fas fa-plus-circle"></i><span>Add Book</span>
+                </a>
+                <a class="sidebar-link" id="addMemberSidebarBtn">
+                    <i class="fas fa-user-plus"></i><span>Add Member</span>
+                </a>
+                <a class="sidebar-link" id="borrowReturnSidebarBtn">
+                    <i class="fas fa-exchange-alt"></i><span>Borrow/Return</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Reports</div>
+                <a id="statsBtn" class="sidebar-link" data-section="statistics">
+                    <i class="fas fa-chart-bar"></i><span>Statistics</span>
+                </a>
+                <a id="historyBtn" class="sidebar-link" data-section="history">
+                    <i class="fas fa-history"></i><span>Borrow History</span>
+                </a>
+                <a id="overdueBtn" class="sidebar-link" data-section="overdue">
+                    <i class="fas fa-exclamation-triangle"></i><span>Overdue Books</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div id="dashboard-section" style="display:none;">
+                <h1>Library Dashboard</h1>
+            </div>
+
+            <div id="books-section" style="display:none;">
+                <h1>Books Catalog</h1>
+            </div>
+
+            <!-- MEMBERS SECTION -->
+            <div id="members-section">
+                <h1>Members Management</h1>
+
+                <div class="card" style="margin-top: 1rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">Library Members</h2>
+                        <button class="btn btn-primary" id="addMemberBtn">
+                            <i class="fas fa-user-plus"></i> Add Member
+                        </button>
+                    </div>
+
+                    <div style="padding: 1rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:240px;">
+                            <input id="memberSearchInput" type="text" placeholder="Search members by name or email..." style="width:100%; padding:0.7rem; border-radius:6px; border:1px solid #333; background:var(--darker-bg); color:var(--text-primary);" />
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button id="memberSearchBtn" class="btn btn-outline">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="padding: 1rem;">
+                        <div class="card" style="padding:0;">
+                            <div style="overflow:auto;">
+                                <table style="width:100%; border-collapse:collapse; min-width:700px;">
+                                    <thead>
+                                        <tr style="background: rgba(138,43,226,0.08); color:var(--text-primary);">
+                                            <th style="padding:12px 16px;">ID</th>
+                                            <th style="padding:12px 16px;">Name</th>
+                                            <th style="padding:12px 16px;">Email</th>
+                                            <th style="padding:12px 16px;">Phone</th>
+                                            <th style="padding:12px 16px;">Joined</th>
+                                            <th style="padding:12px 16px; text-align:center;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="membersTableBody">
+                                        <tr>
+                                            <td colspan="6" style="padding:2.5rem; text-align:center; color:var(--text-secondary);">
+                                                No members yet. Click <strong>Add Member</strong> to create the first member.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <!-- END MEMBERS SECTION -->
+
+        </main>
+    </div>
+
+    <!-- ADD MEMBER MODAL -->
+    <div class="modal" id="addMemberModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Member</h2>
+                <button class="close-modal" data-close="true">&times;</button>
+            </div>
+
+            <form id="addMemberForm">
+                <div class="form-group">
+                    <label for="memberName">Full Name</label>
+                    <input type="text" id="memberName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="memberEmail">Email</label>
+                    <input type="email" id="memberEmail" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="memberPhone">Phone</label>
+                    <input type="text" id="memberPhone">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" id="cancelAddMember">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- VIEW MEMBER MODAL -->
+    <div class="modal" id="viewMemberModal">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Member Details</h2>
+                <button class="close-modal" data-close="true">&times;</button>
+            </div>
+
+            <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+                <div style="flex:1; min-width:240px;">
+                    <strong>Name</strong>
+                    <div id="viewMemberName" class="detail"></div>
+
+                    <strong>Email</strong>
+                    <div id="viewMemberEmail" class="detail"></div>
+
+                    <strong>Phone</strong>
+                    <div id="viewMemberPhone" class="detail"></div>
+
+                    <strong>Date Joined</strong>
+                    <div id="viewMemberDate" class="detail"></div>
+                </div>
+
+                <div style="flex:1; min-width:260px;">
+                    <h3>Borrowed Books</h3>
+                    <div id="viewBorrowedBooks" class="borrowed-box">No books borrowed.</div>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top:1.2rem;">
+                <button class="btn btn-outline" data-close="true">Close</button>
+                <button class="btn btn-primary" id="viewMemberEditBtn">Edit Member</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MEMBER MODAL -->
+    <div class="modal" id="editMemberModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Member</h2>
+                <button class="close-modal" data-close="true">&times;</button>
+            </div>
+
+            <form id="editMemberForm">
+                <input type="hidden" id="editMemberId" />
+
+                <div class="form-group">
+                    <label for="editMemberName">Full Name</label>
+                    <input type="text" id="editMemberName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editMemberEmail">Email</label>
+                    <input type="email" id="editMemberEmail" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editMemberPhone">Phone</label>
+                    <input type="text" id="editMemberPhone">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" data-close="true">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE MEMBER MODAL -->
+    <div class="modal" id="deleteMemberModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" style="color:var(--danger);">Delete Member</h2>
+                <button class="close-modal" data-close="true">&times;</button>
+            </div>
+
+            <p>Are you sure you want to delete <strong id="deleteMemberName">this member</strong>?</p>
+
+            <div class="form-actions">
+                <button class="btn btn-outline" data-close="true">Cancel</button>
+                <button class="btn" id="confirmDeleteMember" style="background:var(--danger); color:#fff;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL NOTIFICATION -->
+    <div class="notification" id="notification"></div>
+
+    <!-- AUTH MODAL -->
+    <div id="authModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px; width: 90%;">
+            <h2 id="authTitle">Login</h2>
+            <form id="authForm">
+                <div id="nameField" style="display: none;">
+                    <label for="authName">Full Name</label>
+                    <input type="text" id="authName">
+                </div>
+
+                <label for="authEmail">Email</label>
+                <input type="email" id="authEmail" required>
+
+                <label for="authPassword">Password</label>
+                <input type="password" id="authPassword" required>
+
+                <button type="submit" class="btn primary-btn" id="authSubmitBtn">Login</button>
+            </form>
+
+            <p style="margin-top: 1rem; text-align: center;">
+                <span id="authToggle">Don't have an account? <a href="#">Sign up</a></span>
+            </p>
+        </div>
+    </div>
+
+    <!-- ONLY this JS will run -->
+    <script type="module" src="scripts/index.js"></script>
+
+</body>
+</html>
