@@ -1,3 +1,52 @@
+// ========== MOBILE NAVIGATION ==========
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const sidebar = document.querySelector('.sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const header = document.querySelector('header');
+
+// Toggle mobile menu (header navigation)
+if (hamburgerBtn && header) {
+    hamburgerBtn.addEventListener('click', () => {
+        header.classList.toggle('mobile-menu-active');
+    });
+}
+
+// Toggle sidebar
+if (hamburgerBtn && sidebar) {
+    hamburgerBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        if (sidebarBackdrop) {
+            sidebarBackdrop.classList.toggle('active');
+        }
+    });
+}
+
+// Close sidebar when backdrop is clicked
+if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => {
+        if (sidebar) sidebar.classList.remove('active');
+        sidebarBackdrop.classList.remove('active');
+        if (header) header.classList.remove('mobile-menu-active');
+    });
+}
+
+// Close mobile menu when clicking on a link
+document.addEventListener('click', (e) => {
+    if (e.target.closest('nav a') && window.innerWidth <= 768) {
+        if (header) header.classList.remove('mobile-menu-active');
+        if (sidebar) sidebar.classList.remove('active');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+    }
+});
+
+// Window resize handler
+window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+        if (header) header.classList.remove('mobile-menu-active');
+        if (sidebar) sidebar.classList.remove('active');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+    }
+});
 
 // ========== DATA MANAGEMENT ==========
 const sampleBooks = [
@@ -680,7 +729,6 @@ function confirmBorrow(bookId) {
   borrowBookId = null;
 }
 
-
 // ================= RETURN SYSTEM =====================
 function returnBook(bookId) {
   const book = sampleBooks.find(b => b.id === bookId);
@@ -710,8 +758,6 @@ function returnBook(bookId) {
   refreshUI();
   showNotification(`"${book.title}" has been returned`);
 }
-
-
 
 function renderBorrowReturnList() {
   const borrowed = sampleBooks.filter(b => b.status === 'Borrowed');
@@ -760,7 +806,6 @@ function renderBorrowReturnList() {
   }, 100);
 }
 
-// ========== ADMIN TOOLS - FIXED ==========
 // ========== ADMIN TOOLS - FIXED ==========
 function calculateOverdueFines() {
   const now = new Date();
@@ -966,8 +1011,6 @@ function saveSystemSettings() {
   showNotification('System settings saved successfully!');
   closeModals();
 }
-
-
 
 // ========== SEARCH FUNCTIONALITY ==========
 function handleDashboardSearch() {
@@ -1424,25 +1467,6 @@ function showOverdueBooksReport() {
         }
     }, 100);
 }
-
-const hamburgerBtn = document.getElementById("hamburgerBtn");
-const sidebar = document.querySelector(".sidebar");
-const backdrop = document.getElementById("sidebarBackdrop");
-
-if (hamburgerBtn) {
-    hamburgerBtn.addEventListener("click", () => {
-        sidebar.classList.toggle("open");
-        backdrop.classList.toggle("active");
-    });
-}
-
-if (backdrop) {
-    backdrop.addEventListener("click", () => {
-        sidebar.classList.remove("open");
-        backdrop.classList.remove("active");
-    });
-}
-
 
 function generateReport() {
     const reportData = {
