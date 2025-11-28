@@ -87,13 +87,32 @@ function showNotification(msg, type = 'success') {
     document.body.appendChild(notification);
   }
   
-  notification.textContent = msg;
-  notification.className = 'notification show';
-  notification.style.backgroundColor = type === 'error' ? 'var(--danger)' : 'var(--success)';
+  // Add icon based on type
+  let icon = '';
+  switch (type) {
+    case 'success':
+      icon = '✅';
+      break;
+    case 'error':
+      icon = '❌';
+      break;
+    case 'warning':
+      icon = '⚠️';
+      break;
+    default:
+      icon = '💡';
+  }
   
+  notification.innerHTML = `${icon} ${msg}`;
+  notification.className = `notification show ${type}`;
+  notification.style.backgroundColor = type === 'error' ? 'var(--danger)' : 
+                                    type === 'warning' ? 'var(--warning)' : 
+                                    'var(--success)';
+  
+  // Auto-hide after delay
   setTimeout(() => {
     notification.className = 'notification';
-  }, 3000);
+  }, type === 'error' ? 5000 : 3000);
 }
 
 function openModal(modalId) {
@@ -198,6 +217,98 @@ function navigateToSection(section) {
   const targetPage = pageMap[section];
   if (targetPage && targetPage !== window.location.pathname.split('/').pop()) {
     window.location.href = targetPage;
+  }
+}
+
+// ========== SIDEBAR BUTTONS FUNCTIONALITY ==========
+function setupSidebarButtons() {
+  console.log('Setting up sidebar buttons...');
+  
+  // Add Book sidebar button
+  const addBookSidebarBtn = document.getElementById('addBookSidebarBtn');
+  if (addBookSidebarBtn) {
+    addBookSidebarBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Add Book sidebar clicked');
+      openModal('addBookModal');
+    });
+  }
+
+  // Add Member sidebar button
+  const addMemberSidebarBtn = document.getElementById('addMemberSidebarBtn');
+  if (addMemberSidebarBtn) {
+    addMemberSidebarBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Add Member sidebar clicked');
+      handleAddMember();
+    });
+  }
+
+  // Borrow/Return sidebar button
+  const borrowReturnSidebarBtn = document.getElementById('borrowReturnSidebarBtn');
+  if (borrowReturnSidebarBtn) {
+    borrowReturnSidebarBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Borrow/Return sidebar clicked');
+      renderBorrowReturnList();
+    });
+  }
+
+  // Reports sidebar buttons
+  const historyBtn = document.getElementById('historyBtn');
+  if (historyBtn) {
+    historyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Borrow History clicked');
+      showBorrowHistory();
+    });
+  }
+
+  const overdueBtn = document.getElementById('overdueBtn');
+  if (overdueBtn) {
+    overdueBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Overdue Books clicked');
+      showOverdueBooks();
+    });
+  }
+
+  // Admin Tools sidebar buttons
+  const fineReportBtn = document.getElementById('fineReportBtn');
+  if (fineReportBtn) {
+    fineReportBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Fine Report clicked');
+      showFineReport();
+    });
+  }
+
+  const bulkImportBtn = document.getElementById('bulkImportBtn');
+  if (bulkImportBtn) {
+    bulkImportBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Bulk Import clicked');
+      showBulkImportModal();
+    });
+  }
+
+  const systemSettingsBtn = document.getElementById('systemSettingsBtn');
+  if (systemSettingsBtn) {
+    systemSettingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('System Settings clicked');
+      showSystemSettings();
+    });
+  }
+
+  // Stats button
+  const statsBtn = document.getElementById('statsBtn');
+  if (statsBtn) {
+    statsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('Statistics clicked');
+      showStatistics();
+    });
   }
 }
 
@@ -1087,7 +1198,7 @@ function handleAllBooksSearch() {
   });
 }
 
-// ========== AUTHENTICATION SYSTEM ==========
+// ========== ENHANCED AUTHENTICATION SYSTEM ==========
 let isSignup = false;
 
 function toggleAuthMode() {
@@ -1105,31 +1216,65 @@ function toggleAuthMode() {
       ? 'Already have an account? <a href="#">Login</a>'
       : "Don't have an account? <a href='#'>Sign up</a>";
   }
+  
+  // Clear form when toggling
+  const authForm = document.getElementById('authForm');
+  if (authForm) authForm.reset();
+}
+
+function validateAuthForm(email, password, name = '') {
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showNotification('Please enter a valid email address', 'error');
+    return false;
+  }
+  
+  // Password validation
+  if (password.length < 6) {
+    showNotification('Password must be at least 6 characters long', 'error');
+    return false;
+  }
+  
+  // Name validation for signup
+  if (isSignup && name.trim().length < 2) {
+    showNotification('Please enter your full name', 'error');
+    return false;
+  }
+  
+  return true;
 }
 
 function handleAuthSubmit(e) {
   e.preventDefault();
+  
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
   const password = document.getElementById('authPassword').value.trim();
+  const name = isSignup ? document.getElementById('authName').value.trim() : '';
+
+  // Validate form inputs
+  if (!validateAuthForm(email, password, name)) {
+    return;
+  }
 
   if (isSignup) {
-    const name = document.getElementById('authName').value.trim();
-    if (!name || !email || !password) {
-      showNotification('Please fill all fields', 'error');
-      return;
-    }
-
+    // SIGN UP PROCESS
+    // Check if user already exists
     if (users.some(u => u.email === email)) {
-      showNotification('User already exists', 'error');
+      showNotification('An account with this email already exists. Please login instead.', 'error');
+      // Auto-switch to login mode
+      if (!isSignup) toggleAuthMode();
       return;
     }
 
+    // Create new user
     const newUser = {
       id: users.length + 1,
       name,
       email,
       password,
       role: users.length === 0 ? 'admin' : 'member',
+      createdAt: new Date().toISOString()
     };
 
     users.push(newUser);
@@ -1140,39 +1285,102 @@ function handleAuthSubmit(e) {
       id: members.length ? Math.max(...members.map(m => m.id)) + 1 : 1,
       name,
       email,
-      joinDate: new Date().toISOString().split('T')[0]
+      joinDate: new Date().toISOString().split('T')[0],
+      phone: '',
+      membershipId: `MEM${Date.now()}`
     };
     members.push(newMember);
     saveData();
 
-    showNotification('Account created successfully! Please login.');
-    toggleAuthMode();
+    // Show success message and redirect
+    showNotification(`🎉 Account created successfully! Welcome to Mike's Library, ${name}!`, 'success');
+    
+    // Auto-login the new user
+    currentUser = newUser;
+    localStorage.setItem('currentUser', JSON.stringify(newUser));
+    
+    // Redirect to dashboard after a brief delay
+    setTimeout(() => {
+      redirectToDashboard();
+    }, 1500);
+
   } else {
+    // LOGIN PROCESS
     const user = users.find(u => u.email === email && u.password === password);
+    
     if (!user) {
-      showNotification('Invalid email or password', 'error');
+      showNotification('Invalid email or password. Please try again.', 'error');
+      
+      // Clear password field on failed login
+      document.getElementById('authPassword').value = '';
+      document.getElementById('authPassword').focus();
       return;
     }
 
+    // Successful login
     currentUser = user;
     localStorage.setItem('currentUser', JSON.stringify(user));
 
-    // Hide auth modal and show app
+    // Show welcome message
+    showNotification(`👋 Welcome back, ${user.name}! Redirecting to dashboard...`, 'success');
+    
+    // Hide auth modal and redirect
     const authModal = document.getElementById('authModal');
     if (authModal) authModal.style.display = 'none';
     
+    // Redirect to dashboard after a brief delay
+    setTimeout(() => {
+      redirectToDashboard();
+    }, 1000);
+    
     setupRoleAccess();
-    showNotification(`Welcome, ${user.name}!`);
   }
 
+  // Reset form
   const authForm = document.getElementById('authForm');
   if (authForm) authForm.reset();
 }
 
+function redirectToDashboard() {
+  // Get current page
+  const currentPage = getCurrentPage();
+  
+  // Only redirect if we're not already on the dashboard
+  if (currentPage !== 'dashboard') {
+    window.location.href = 'index.html';
+  } else {
+    // If already on dashboard, just refresh the UI
+    refreshUI();
+    showAppContent();
+  }
+}
+
+function showAppContent() {
+  // Show main content after successful login
+  const mainContent = document.querySelector('main');
+  const header = document.querySelector('header');
+  const sidebar = document.querySelector('.sidebar');
+  const footer = document.querySelector('footer');
+  
+  if (mainContent) mainContent.style.display = 'block';
+  if (header) header.style.display = 'flex';
+  if (sidebar) sidebar.style.display = 'flex';
+  if (footer) footer.style.display = 'block';
+}
+
 function handleLogout() {
   if (confirm('Are you sure you want to log out?')) {
-    localStorage.removeItem('currentUser');
-    location.reload();
+    // Show logout message
+    showNotification('👋 Logging out...', 'success');
+    
+    // Clear user data after a brief delay
+    setTimeout(() => {
+      localStorage.removeItem('currentUser');
+      currentUser = null;
+      
+      // Reload to show login modal
+      location.reload();
+    }, 1000);
   }
 }
 
@@ -1181,13 +1389,42 @@ function setupRoleAccess() {
   const addMemberBtn = document.getElementById('addMemberBtn');
   const addBookSidebarBtn = document.getElementById('addBookSidebarBtn');
   const addMemberSidebarBtn = document.getElementById('addMemberSidebarBtn');
+  const adminToolsSection = document.querySelector('.sidebar-section:nth-child(4)'); // Admin Tools section
 
   if (!currentUser) return;
 
   if (currentUser.role === 'member') {
+    // Hide admin features for regular members
     [addBookBtn, addMemberBtn, addBookSidebarBtn, addMemberSidebarBtn].forEach(btn => {
       if (btn) btn.style.display = 'none';
     });
+    
+    // Hide admin tools section
+    if (adminToolsSection) {
+      adminToolsSection.style.display = 'none';
+    }
+    
+    // Update user menu to show member role
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    if (userMenuBtn) {
+      userMenuBtn.innerHTML = `<i class="fas fa-user"></i> ${currentUser.name} (Member)`;
+    }
+  } else {
+    // Show admin features
+    [addBookBtn, addMemberBtn, addBookSidebarBtn, addMemberSidebarBtn].forEach(btn => {
+      if (btn) btn.style.display = 'flex';
+    });
+    
+    // Show admin tools section
+    if (adminToolsSection) {
+      adminToolsSection.style.display = 'block';
+    }
+    
+    // Update user menu to show admin role
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    if (userMenuBtn) {
+      userMenuBtn.innerHTML = `<i class="fas fa-user-shield"></i> ${currentUser.name} (Admin)`;
+    }
   }
 }
 
@@ -1270,6 +1507,7 @@ function setupPageSpecificListeners() {
   
   // Common listeners for all pages
   setupSidebarNavigation();
+  setupSidebarButtons(); // NEW: Setup sidebar buttons
   
   // Page-specific listeners
   if (currentPage === 'dashboard') {
@@ -1633,7 +1871,15 @@ function initializeApp() {
   // Check authentication
   if (!currentUser) {
     const authModal = document.getElementById('authModal');
-    if (authModal) authModal.style.display = 'flex';
+    if (authModal) {
+      authModal.style.display = 'flex';
+      // Focus on email field when modal opens
+      setTimeout(() => {
+        const emailInput = document.getElementById('authEmail');
+        if (emailInput) emailInput.focus();
+      }, 300);
+    }
+    
     // Hide main content if not logged in
     const mainContent = document.querySelector('main');
     const header = document.querySelector('header');
@@ -1643,11 +1889,31 @@ function initializeApp() {
     if (header) header.style.display = 'none';
     if (sidebar) sidebar.style.display = 'none';
   } else {
+    // User is logged in
     const authModal = document.getElementById('authModal');
     if (authModal) authModal.style.display = 'none';
+    
+    // Show app content
+    showAppContent();
     setupRoleAccess();
+    
+    // Show welcome message if just logged in
+    const justLoggedIn = sessionStorage.getItem('justLoggedIn');
+    if (!justLoggedIn) {
+      showNotification(`👋 Welcome back, ${currentUser.name}!`, 'success');
+      sessionStorage.setItem('justLoggedIn', 'true');
+    }
   }
 }
+
+
+// Add session cleanup on page load
+window.addEventListener('load', () => {
+  // Clear the "just logged in" flag if user refreshes
+  if (sessionStorage.getItem('justLoggedIn')) {
+    sessionStorage.removeItem('justLoggedIn');
+  }
+});
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', initializeApp);
