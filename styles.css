@@ -835,3 +835,25 @@ footer {
         transform: none !important;
     }
 }
+
+/* ===== MOBILE LOGOUT STYLES ===== */
+@media (max-width: 768px) {
+    .sidebar-section:last-child {
+        margin-top: auto;
+        padding-top: 1rem;
+        border-top: 1px solid #333;
+    }
+    
+    #mobileLogoutBtn {
+        color: var(--danger) !important;
+    }
+    
+    #mobileLogoutBtn:hover {
+        background-color: rgba(255, 51, 51, 0.1) !important;
+        color: var(--danger) !important;
+    }
+    
+    #mobileLogoutBtn i {
+        color: var(--danger) !important;
+    }
+}

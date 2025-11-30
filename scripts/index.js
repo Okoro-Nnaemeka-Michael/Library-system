@@ -18,6 +18,8 @@ if (hamburgerBtn && sidebar) {
         if (sidebarBackdrop) {
             sidebarBackdrop.classList.toggle('active');
         }
+        // Add logout button to sidebar when opened on mobile
+        addLogoutToSidebar();
     });
 }
 
@@ -27,6 +29,8 @@ if (sidebarBackdrop) {
         if (sidebar) sidebar.classList.remove('active');
         sidebarBackdrop.classList.remove('active');
         if (header) header.classList.remove('mobile-menu-active');
+        // Remove logout button when sidebar closes
+        removeLogoutFromSidebar();
     });
 }
 
@@ -36,6 +40,8 @@ document.addEventListener('click', (e) => {
         if (header) header.classList.remove('mobile-menu-active');
         if (sidebar) sidebar.classList.remove('active');
         if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+        // Remove logout button when sidebar closes
+        removeLogoutFromSidebar();
     }
 });
 
@@ -45,6 +51,64 @@ window.addEventListener('resize', function() {
         if (header) header.classList.remove('mobile-menu-active');
         if (sidebar) sidebar.classList.remove('active');
         if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+        // Remove logout button when switching to desktop
+        removeLogoutFromSidebar();
+    }
+});
+
+// ========== MOBILE LOGOUT FUNCTIONALITY ==========
+function addLogoutToSidebar() {
+    // Only add on mobile devices
+    if (window.innerWidth > 768) return;
+    
+    // Check if logout button already exists
+    if (document.getElementById('mobileLogoutBtn')) return;
+    
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    
+    // Create logout section
+    const logoutSection = document.createElement('div');
+    logoutSection.className = 'sidebar-section';
+    logoutSection.innerHTML = `
+        <div class="sidebar-title">Account</div>
+        <a href="#" class="sidebar-link" id="mobileLogoutBtn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    `;
+    
+    // Add to the bottom of sidebar
+    sidebar.appendChild(logoutSection);
+    
+    // Add event listener to the logout button
+    const logoutBtn = document.getElementById('mobileLogoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
+    }
+}
+
+function removeLogoutFromSidebar() {
+    const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    if (mobileLogoutBtn) {
+        const logoutSection = mobileLogoutBtn.closest('.sidebar-section');
+        if (logoutSection) {
+            logoutSection.remove();
+        }
+    }
+}
+
+// Also add logout button when sidebar opens via other methods (like clicking backdrop)
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.sidebar-link') && window.innerWidth <= 768) {
+        // Re-add logout button if it was removed
+        setTimeout(() => {
+            if (sidebar.classList.contains('active') && !document.getElementById('mobileLogoutBtn')) {
+                addLogoutToSidebar();
+            }
+        }, 100);
     }
 });
 
