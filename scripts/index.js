@@ -616,6 +616,7 @@ function renderMembersTable() {
   attachMemberEventListeners();
 }
 
+
 function attachMemberEventListeners() {
   document.querySelectorAll('.view-member').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -902,6 +903,90 @@ function confirmBorrow(bookId) {
 
   // reset stored id
   borrowBookId = null;
+}
+
+  // ========== THEME MANAGEMENT ==========
+let currentTheme = localStorage.getItem('theme') || 'dark';
+
+function initializeTheme() {
+    // Set initial theme
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    
+    // Update theme toggle button text
+    updateThemeToggleButton();
+    
+    // Add theme section to sidebar
+    addThemeSectionToSidebar();
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('theme', currentTheme);
+    
+    updateThemeToggleButton();
+    updateSidebarThemeOptions();
+    showNotification(`Switched to ${currentTheme} theme`, 'success');
+}
+
+function updateThemeToggleButton() {
+    const themeToggleBtn = document.getElementById('theme');
+    if (themeToggleBtn) {
+        themeToggleBtn.innerHTML = currentTheme === 'dark' 
+            ? '<i class="fas fa-sun"></i> Light Mode'
+            : '<i class="fas fa-moon"></i> Dark Mode';
+    }
+}
+
+function addThemeSectionToSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar || document.querySelector('.theme-section')) return;
+    
+    const themeSection = document.createElement('div');
+    themeSection.className = 'sidebar-section theme-section';
+    themeSection.innerHTML = `
+        <div class="sidebar-title">Theme</div>
+        <div class="theme-options">
+            <button class="theme-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                <i class="fas fa-moon theme-icon"></i>
+                <span class="theme-name">Dark Mode</span>
+                <i class="fas fa-check theme-check"></i>
+            </button>
+            <button class="theme-option ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                <i class="fas fa-sun theme-icon"></i>
+                <span class="theme-name">Light Mode</span>
+                <i class="fas fa-check theme-check"></i>
+            </button>
+        </div>
+    `;
+    
+    sidebar.appendChild(themeSection);
+    
+    // Add event listeners to theme options
+    document.querySelectorAll('.theme-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const selectedTheme = this.dataset.theme;
+            if (selectedTheme !== currentTheme) {
+                currentTheme = selectedTheme;
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('theme', currentTheme);
+                
+                updateThemeToggleButton();
+                updateSidebarThemeOptions();
+                showNotification(`Switched to ${currentTheme} theme`, 'success');
+            }
+        });
+    });
+}
+
+function updateSidebarThemeOptions() {
+    document.querySelectorAll('.theme-option').forEach(option => {
+        if (option.dataset.theme === currentTheme) {
+            option.classList.add('active');
+        } else {
+            option.classList.remove('active');
+        }
+    });
 }
 
 // ================= RETURN SYSTEM =====================
@@ -1841,6 +1926,12 @@ window.generateReport = generateReport;
 // ========== GLOBAL EVENT LISTENERS - FIXED ADMIN TOOLS ==========
 function setupGlobalListeners() {
   console.log('Setting up global listeners...');
+
+   // Theme toggle
+    const themeToggleBtn = document.getElementById('theme');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
   
   // Authentication
   const authToggle = document.getElementById('authToggle');
@@ -1909,6 +2000,7 @@ function initializeApp() {
   console.log('Initializing app...');
   loadData();
   setupGlobalListeners();
+  initializeTheme()
   setupPageSpecificListeners();
   refreshUI();
 
@@ -1957,11 +2049,9 @@ function initializeApp() {
     const authModal = document.getElementById('authModal');
     if (authModal) authModal.style.display = 'none';
     
-    // Show app content
     showAppContent();
     setupRoleAccess();
-    
-    // Show welcome message if just logged in
+  
     const justLoggedIn = sessionStorage.getItem('justLoggedIn');
     if (!justLoggedIn) {
       showNotification(`👋 Welcome back, ${currentUser.name}!`, 'success');
@@ -1970,19 +2060,14 @@ function initializeApp() {
   }
 }
 
-
-// Add session cleanup on page load
 window.addEventListener('load', () => {
-  // Clear the "just logged in" flag if user refreshes
   if (sessionStorage.getItem('justLoggedIn')) {
     sessionStorage.removeItem('justLoggedIn');
   }
 });
 
-// Initialize the application
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-// Make functions available globally for HTML onclick handlers
 window.confirmBorrow = confirmBorrow;
 window.closeModals = closeModals;
 window.borrowBook = borrowBook;

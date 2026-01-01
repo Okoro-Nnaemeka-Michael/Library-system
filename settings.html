@@ -830,6 +830,11 @@
                                 </a>
                             </li>
                             <li class="settings-nav-item">
+                                <a href="#appearance" class="settings-nav-link" data-settings-section="appearance">
+                                    <i class="fas fa-palette"></i> Appearance
+                                </a>
+                            </li>
+                            <li class="settings-nav-item">
                                 <a href="#account" class="settings-nav-link" data-settings-section="account">
                                     <i class="fas fa-user-cog"></i> Account Settings
                                 </a>
@@ -940,6 +945,57 @@
                                 </div>
 
                                 <button type="submit" class="btn btn-primary">Save Borrowing Rules</button>
+                            </form>
+                        </div>
+
+                        <!-- Appearance Settings -->
+                        <div id="appearance-section" class="settings-section">
+                            <h2>Appearance Settings</h2>
+                            <form class="settings-form" id="appearanceSettingsForm">
+                                <div class="form-group">
+                                    <label for="themeSelect">Theme</label>
+                                    <select class="form-control" id="themeSelect">
+                                        <option value="light">Light Theme</option>
+                                        <option value="dark" selected>Dark Theme</option>
+                                        <option value="auto">Auto (System Preference)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="languageSelect">Language</label>
+                                    <select class="form-control" id="languageSelect">
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                        <option value="fr">Français</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="dateFormat">Date Format</label>
+                                    <select class="form-control" id="dateFormat">
+                                        <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                                        <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                                        <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                                    </select>
+                                </div>
+
+                                <div class="toggle-group">
+                                    <span class="toggle-label">Compact Layout</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="compactLayout">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="toggle-group">
+                                    <span class="toggle-label">Show Book Covers</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="showCovers" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">Save Appearance Settings</button>
                             </form>
                         </div>
 
@@ -1151,439 +1207,6 @@
 
     <!-- Notification Element -->
     <div class="notification" id="notification"></div>
-
-    <script>
-        // ========== SETTINGS PAGE FUNCTIONALITY ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSettingsPage();
-            checkAuthentication();
-        });
-
-        function initializeSettingsPage() {
-            setupSettingsNavigation();
-            loadSettingsFromStorage();
-            setupSettingsForms();
-            setupEventListeners();
-            loadUserProfile();
-        }
-
-        function setupSettingsNavigation() {
-            const navLinks = document.querySelectorAll('.settings-nav-link');
-            
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Remove active class from all links
-                    navLinks.forEach(nav => nav.classList.remove('active'));
-                    
-                    // Add active class to clicked link
-                    this.classList.add('active');
-                    
-                    // Hide all sections
-                    document.querySelectorAll('.settings-section').forEach(section => {
-                        section.classList.remove('active');
-                    });
-                    
-                    // Show target section
-                    const targetSection = this.getAttribute('data-settings-section');
-                    document.getElementById(`${targetSection}-section`).classList.add('active');
-                });
-            });
-        }
-
-        function setupEventListeners() {
-            // Logout buttons
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-            document.getElementById('logoutAccountBtn').addEventListener('click', handleLogout);
-            
-            // Change password form
-            document.getElementById('changePasswordForm').addEventListener('submit', handleChangePassword);
-            
-            // Modal close events
-            document.querySelectorAll('.close-modal').forEach(btn => {
-                btn.addEventListener('click', closeModals);
-            });
-        }
-
-        function checkAuthentication() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) {
-                showNotification('Please login to access settings', 'error');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 2000);
-                return;
-            }
-        }
-
-        function loadUserProfile() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (currentUser) {
-                document.getElementById('currentUserName').textContent = currentUser.name;
-                document.getElementById('currentUserEmail').textContent = currentUser.email;
-                document.getElementById('currentUserRole').textContent = currentUser.role || 'Member';
-                
-                // Populate profile form
-                document.getElementById('userName').value = currentUser.name;
-                document.getElementById('userEmail').value = currentUser.email;
-                document.getElementById('userPhone').value = currentUser.phone || '';
-                
-                // Update session info
-                updateSessionInfo();
-            }
-        }
-
-        function updateSessionInfo() {
-            const now = new Date();
-            document.getElementById('loginTime').textContent = now.toLocaleString();
-            document.getElementById('lastActive').textContent = now.toLocaleString();
-            document.getElementById('ipAddress').textContent = '192.168.1.1'; // Simulated IP
-        }
-
-        function loadSettingsFromStorage() {
-            const settings = JSON.parse(localStorage.getItem('librarySettings')) || {};
-            
-            // General Settings
-            if (settings.libraryName) document.getElementById('libraryName').value = settings.libraryName;
-            if (settings.libraryEmail) document.getElementById('libraryEmail').value = settings.libraryEmail;
-            if (settings.libraryPhone) document.getElementById('libraryPhone').value = settings.libraryPhone;
-            if (settings.libraryAddress) document.getElementById('libraryAddress').value = settings.libraryAddress;
-            
-            // Borrowing Rules
-            if (settings.maxBooks) document.getElementById('maxBooks').value = settings.maxBooks;
-            if (settings.borrowPeriod) document.getElementById('borrowPeriod').value = settings.borrowPeriod;
-            if (settings.dailyFine) document.getElementById('dailyFine').value = settings.dailyFine;
-        }
-
-        function setupSettingsForms() {
-            // General Settings Form
-            const generalForm = document.getElementById('generalSettingsForm');
-            if (generalForm) {
-                generalForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    saveGeneralSettings();
-                });
-            }
-
-            // Borrowing Rules Form
-            const borrowingForm = document.getElementById('borrowingSettingsForm');
-            if (borrowingForm) {
-                borrowingForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    saveBorrowingSettings();
-                });
-            }
-
-            // Profile Settings Form
-            const profileForm = document.getElementById('profileSettingsForm');
-            if (profileForm) {
-                profileForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    saveProfileSettings();
-                });
-            }
-
-            // Security Settings Form
-            const securityForm = document.getElementById('securitySettingsForm');
-            if (securityForm) {
-                securityForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    saveSecuritySettings();
-                });
-            }
-        }
-
-        function saveGeneralSettings() {
-            const settings = {
-                libraryName: document.getElementById('libraryName').value,
-                libraryEmail: document.getElementById('libraryEmail').value,
-                libraryPhone: document.getElementById('libraryPhone').value,
-                libraryAddress: document.getElementById('libraryAddress').value,
-                publicCatalog: document.getElementById('publicCatalog').checked,
-                memberRegistration: document.getElementById('memberRegistration').checked
-            };
-
-            localStorage.setItem('librarySettings', JSON.stringify(settings));
-            showNotification('General settings saved successfully!', 'success');
-        }
-
-        function saveBorrowingSettings() {
-            const settings = JSON.parse(localStorage.getItem('librarySettings')) || {};
-            
-            settings.borrowingRules = {
-                maxBooks: parseInt(document.getElementById('maxBooks').value),
-                borrowPeriod: parseInt(document.getElementById('borrowPeriod').value),
-                renewalLimit: parseInt(document.getElementById('renewalLimit').value),
-                dailyFine: parseFloat(document.getElementById('dailyFine').value),
-                maxFine: parseFloat(document.getElementById('maxFine').value),
-                autoRenewal: document.getElementById('autoRenewal').checked,
-                dueDateReminders: document.getElementById('dueDateReminders').checked
-            };
-
-            localStorage.setItem('librarySettings', JSON.stringify(settings));
-            showNotification('Borrowing rules saved successfully!', 'success');
-        }
-
-        function saveProfileSettings() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            
-            if (currentUser) {
-                // Update current user
-                currentUser.name = document.getElementById('userName').value;
-                currentUser.email = document.getElementById('userEmail').value;
-                currentUser.phone = document.getElementById('userPhone').value;
-                
-                // Update in users array
-                const userIndex = users.findIndex(u => u.id === currentUser.id);
-                if (userIndex !== -1) {
-                    users[userIndex] = currentUser;
-                }
-                
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                localStorage.setItem('users', JSON.stringify(users));
-                
-                // Update UI
-                loadUserProfile();
-                showNotification('Profile updated successfully!', 'success');
-            }
-        }
-
-        function saveSecuritySettings() {
-            const settings = JSON.parse(localStorage.getItem('librarySettings')) || {};
-            
-            settings.security = {
-                minPasswordLength: parseInt(document.getElementById('minPasswordLength').value),
-                requireSpecialChars: document.getElementById('requireSpecialChars').checked,
-                requireNumbers: document.getElementById('requireNumbers').checked,
-                sessionTimeout: parseInt(document.getElementById('sessionTimeout').value),
-                forceLogout: document.getElementById('forceLogout').checked
-            };
-
-            localStorage.setItem('librarySettings', JSON.stringify(settings));
-            showNotification('Security settings saved successfully!', 'success');
-        }
-
-        function handleChangePassword(e) {
-            e.preventDefault();
-            
-            const currentPassword = document.getElementById('currentPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            
-            if (!currentUser) {
-                showNotification('User not found', 'error');
-                return;
-            }
-            
-            // Verify current password
-            if (currentUser.password !== currentPassword) {
-                showNotification('Current password is incorrect', 'error');
-                return;
-            }
-            
-            // Check if new password matches confirmation
-            if (newPassword !== confirmPassword) {
-                showNotification('New passwords do not match', 'error');
-                return;
-            }
-            
-            // Check password strength
-            if (newPassword.length < 8) {
-                showNotification('Password must be at least 8 characters long', 'error');
-                return;
-            }
-            
-            // Update password
-            currentUser.password = newPassword;
-            
-            // Update in users array
-            const userIndex = users.findIndex(u => u.id === currentUser.id);
-            if (userIndex !== -1) {
-                users[userIndex].password = newPassword;
-            }
-            
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            localStorage.setItem('users', JSON.stringify(users));
-            
-            showNotification('Password changed successfully!', 'success');
-            closeModals();
-            document.getElementById('changePasswordForm').reset();
-        }
-
-        function handleLogout() {
-            if (confirm('Are you sure you want to log out?')) {
-                // Show logout message
-                showNotification('👋 Logging out...', 'success');
-                
-                // Clear user data after a brief delay
-                setTimeout(() => {
-                    localStorage.removeItem('currentUser');
-                    
-                    // Redirect to login page
-                    window.location.href = 'index.html';
-                }, 1000);
-            }
-        }
-
-        function refreshSession() {
-            showNotification('Session refreshed successfully!', 'success');
-            updateSessionInfo();
-        }
-
-        function showChangePasswordModal() {
-            document.getElementById('changePasswordModal').style.display = 'flex';
-        }
-
-        function closeModals() {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.style.display = 'none';
-            });
-        }
-
-        function exportData() {
-            const data = {
-                books: JSON.parse(localStorage.getItem('books')) || [],
-                members: JSON.parse(localStorage.getItem('members')) || [],
-                borrowHistory: JSON.parse(localStorage.getItem('borrowHistory')) || [],
-                users: JSON.parse(localStorage.getItem('users')) || [],
-                settings: JSON.parse(localStorage.getItem('librarySettings')) || {},
-                exportDate: new Date().toISOString()
-            };
-
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `library-backup-${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            
-            showNotification('Data exported successfully!', 'success');
-        }
-
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                
-                reader.onload = function(event) {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        
-                        if (confirm('This will replace all current data. Are you sure?')) {
-                            if (data.books) localStorage.setItem('books', JSON.stringify(data.books));
-                            if (data.members) localStorage.setItem('members', JSON.stringify(data.members));
-                            if (data.borrowHistory) localStorage.setItem('borrowHistory', JSON.stringify(data.borrowHistory));
-                            if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
-                            if (data.settings) localStorage.setItem('librarySettings', JSON.stringify(data.settings));
-                            
-                            showNotification('Data imported successfully!', 'success');
-                            setTimeout(() => location.reload(), 1000);
-                        }
-                    } catch (error) {
-                        showNotification('Error importing data: Invalid file format', 'error');
-                    }
-                };
-                
-                reader.readAsText(file);
-            };
-            
-            input.click();
-        }
-
-        function confirmReset() {
-            const resetType = document.getElementById('resetType').value;
-            
-            if (!resetType) {
-                showNotification('Please select what to reset', 'error');
-                return;
-            }
-            
-            const message = {
-                'books': 'This will delete ALL books. This action cannot be undone.',
-                'members': 'This will delete ALL members. This action cannot be undone.',
-                'history': 'This will clear ALL borrow history. This action cannot be undone.',
-                'all': 'This will reset EVERYTHING - books, members, history, and settings. This action cannot be undone.'
-            }[resetType];
-            
-            if (confirm(`WARNING: ${message}\n\nAre you absolutely sure?`)) {
-                performReset(resetType);
-            }
-        }
-
-        function performReset(resetType) {
-            switch (resetType) {
-                case 'books':
-                    localStorage.removeItem('books');
-                    break;
-                case 'members':
-                    localStorage.removeItem('members');
-                    break;
-                case 'history':
-                    localStorage.removeItem('borrowHistory');
-                    break;
-                case 'all':
-                    localStorage.clear();
-                    break;
-            }
-            
-            showNotification(`Data reset successfully: ${resetType}`, 'success');
-            setTimeout(() => location.reload(), 1500);
-        }
-
-        function showNotification(msg, type = 'success') {
-            let notification = document.getElementById('notification');
-            if (!notification) {
-                notification = document.createElement('div');
-                notification.id = 'notification';
-                notification.className = 'notification';
-                document.body.appendChild(notification);
-            }
-            
-            // Add icon based on type
-            let icon = '';
-            switch (type) {
-                case 'success':
-                    icon = '✅';
-                    break;
-                case 'error':
-                    icon = '❌';
-                    break;
-                case 'warning':
-                    icon = '⚠️';
-                    break;
-                default:
-                    icon = '💡';
-            }
-            
-            notification.innerHTML = `${icon} ${msg}`;
-            notification.className = `notification show ${type}`;
-            notification.style.backgroundColor = type === 'error' ? 'var(--danger)' : 
-                                                type === 'warning' ? 'var(--warning)' : 
-                                                'var(--success)';
-            
-            // Auto-hide after delay
-            setTimeout(() => {
-                notification.className = 'notification';
-            }, type === 'error' ? 5000 : 3000);
-        }
-
-        // Make functions available globally
-        window.exportData = exportData;
-        window.importData = importData;
-        window.confirmReset = confirmReset;
-        window.refreshSession = refreshSession;
-        window.showChangePasswordModal = showChangePasswordModal;
-        window.closeModals = closeModals;
-    </script>
+    <script src="scripts/settings.js"></script>
 </body>
 </html>
