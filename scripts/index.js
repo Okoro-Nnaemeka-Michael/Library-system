@@ -142,7 +142,7 @@ function escapeHtml(str = '') {
     .replaceAll("'", '&#39;');
 }
 
-function showNotification(msg, type = 'success') {
+function showNotification(msg, type = 'success', options = {}) {
   let notification = document.getElementById('notification');
   if (!notification) {
     notification = document.createElement('div');
@@ -163,20 +163,64 @@ function showNotification(msg, type = 'success') {
     case 'warning':
       icon = '⚠️';
       break;
+    case 'info':
+      icon = 'ℹ️';
+      break;
+    case 'auth-success':
+      icon = '🎉';
+      type = 'success'; // Override for styling
+      break;
+    case 'auth-error':
+      icon = '🔒';
+      type = 'error'; // Override for styling
+      break;
     default:
       icon = '💡';
   }
   
+  // Add custom icon if provided
+  if (options.icon) icon = options.icon;
+  
   notification.innerHTML = `${icon} ${msg}`;
   notification.className = `notification show ${type}`;
-  notification.style.backgroundColor = type === 'error' ? 'var(--danger)' : 
-                                    type === 'warning' ? 'var(--warning)' : 
-                                    'var(--success)';
+  
+  // Set background color based on type
+  switch (type) {
+    case 'error':
+    case 'auth-error':
+      notification.style.backgroundColor = 'var(--danger)';
+      break;
+    case 'warning':
+      notification.style.backgroundColor = 'var(--warning)';
+      break;
+    case 'info':
+      notification.style.backgroundColor = 'var(--info)';
+      break;
+    case 'success':
+    case 'auth-success':
+    default:
+      notification.style.backgroundColor = 'var(--success)';
+  }
+  
+  // Set text color for readability
+  notification.style.color = '#fff';
+  notification.style.fontWeight = '500';
+  notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+  
+  // Custom duration for auth notifications
+  const duration = options.duration || (type.includes('error') ? 5000 : 3000);
   
   // Auto-hide after delay
-  setTimeout(() => {
+  clearTimeout(notification.timeoutId);
+  notification.timeoutId = setTimeout(() => {
     notification.className = 'notification';
-  }, type === 'error' ? 5000 : 3000);
+  }, duration);
+  
+  // Add click to dismiss
+  notification.onclick = () => {
+    notification.className = 'notification';
+    clearTimeout(notification.timeoutId);
+  };
 }
 
 function openModal(modalId) {
@@ -1401,93 +1445,177 @@ function handleAuthSubmit(e) {
   const password = document.getElementById('authPassword').value.trim();
   const name = isSignup ? document.getElementById('authName').value.trim() : '';
 
+  // Show loading state
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = isSignup ? 'Creating Account...' : 'Logging in...';
+  submitBtn.disabled = true;
+
   // Validate form inputs
   if (!validateAuthForm(email, password, name)) {
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
     return;
   }
 
-  if (isSignup) {
-    // SIGN UP PROCESS
-    // Check if user already exists
-    if (users.some(u => u.email === email)) {
-      showNotification('An account with this email already exists. Please login instead.', 'error');
-      // Auto-switch to login mode
-      if (!isSignup) toggleAuthMode();
-      return;
+  // Add slight delay for better UX
+  setTimeout(() => {
+    if (isSignup) {
+      handleSignup(email, password, name);
+    } else {
+      handleLogin(email, password);
     }
-
-    // Create new user
-    const newUser = {
-      id: users.length + 1,
-      name,
-      email,
-      password,
-      role: users.length === 0 ? 'admin' : 'member',
-      createdAt: new Date().toISOString()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // Automatically add to members list
-    const newMember = {
-      id: members.length ? Math.max(...members.map(m => m.id)) + 1 : 1,
-      name,
-      email,
-      joinDate: new Date().toISOString().split('T')[0],
-      phone: '',
-      membershipId: `MEM${Date.now()}`
-    };
-    members.push(newMember);
-    saveData();
-
-    // Show success message and redirect
-    showNotification(`🎉 Account created successfully! Welcome to Mike's Library, ${name}!`, 'success');
     
-    // Auto-login the new user
-    currentUser = newUser;
-    localStorage.setItem('currentUser', JSON.stringify(newUser));
+    // Reset button state
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }, 800); // Simulate API delay for better UX
+}
+
+function handleSignup(email, password, name) {
+  // Check if user already exists
+  if (users.some(u => u.email === email)) {
+    showNotification(
+      'This email is already registered. Please login or use a different email.',
+      'auth-error',
+      { duration: 5000 }
+    );
     
-    // Redirect to dashboard after a brief delay
+    // Auto-switch to login mode with helpful suggestion
+    showNotification(
+      'Switching to login mode...',
+      'info',
+      { duration: 2000, icon: '↻' }
+    );
+    
     setTimeout(() => {
-      redirectToDashboard();
-    }, 1500);
-
-  } else {
-    // LOGIN PROCESS
-    const user = users.find(u => u.email === email && u.password === password);
-    
-    if (!user) {
-      showNotification('Invalid email or password. Please try again.', 'error');
-      
-      // Clear password field on failed login
+      if (!isSignup) toggleAuthMode();
+      // Pre-fill email for login
+      document.getElementById('authEmail').value = email;
       document.getElementById('authPassword').value = '';
       document.getElementById('authPassword').focus();
-      return;
-    }
-
-    // Successful login
-    currentUser = user;
-    localStorage.setItem('currentUser', JSON.stringify(user));
-
-    // Show welcome message
-    showNotification(`👋 Welcome back, ${user.name}! Redirecting to dashboard...`, 'success');
-    
-    // Hide auth modal and redirect
-    const authModal = document.getElementById('authModal');
-    if (authModal) authModal.style.display = 'none';
-    
-    // Redirect to dashboard after a brief delay
-    setTimeout(() => {
-      redirectToDashboard();
-    }, 1000);
-    
-    setupRoleAccess();
+    }, 1500);
+    return;
   }
 
-  // Reset form
-  const authForm = document.getElementById('authForm');
-  if (authForm) authForm.reset();
+  // Create new user
+  const newUser = {
+    id: users.length + 1,
+    name,
+    email,
+    password,
+    role: users.length === 0 ? 'admin' : 'member',
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString()
+  };
+
+  users.push(newUser);
+  localStorage.setItem('users', JSON.stringify(users));
+
+  // Automatically add to members list
+  const newMember = {
+    id: members.length ? Math.max(...members.map(m => m.id)) + 1 : 1,
+    name,
+    email,
+    joinDate: new Date().toISOString().split('T')[0],
+    phone: '',
+    membershipId: `MEM${Date.now()}`
+  };
+  members.push(newMember);
+  saveData();
+
+  // Show comprehensive success message
+  showNotification(
+    `🎉 Welcome ${name}! Your account has been created successfully!`,
+    'auth-success',
+    { duration: 4000 }
+  );
+  
+  // Additional welcome message
+  setTimeout(() => {
+    const roleMsg = newUser.role === 'admin' ? 'as an Administrator' : 'as a Member';
+    showNotification(
+      `You've been registered ${roleMsg}. Redirecting to dashboard...`,
+      'success',
+      { duration: 3000 }
+    );
+  }, 1500);
+  
+  // Auto-login the new user
+  currentUser = newUser;
+  localStorage.setItem('currentUser', JSON.stringify(newUser));
+  
+  // Redirect to dashboard after a brief delay
+  setTimeout(() => {
+    redirectToDashboard();
+  }, 3000);
+}
+
+function handleLogin(email, password) {
+  const user = users.find(u => u.email === email && u.password === password);
+  
+  if (!user) {
+    showNotification(
+      'Invalid email or password. Please check your credentials and try again.',
+      'auth-error',
+      { duration: 4000 }
+    );
+    
+    // Clear password field on failed login
+    document.getElementById('authPassword').value = '';
+    document.getElementById('authPassword').focus();
+    
+    // Show helpful hints
+    setTimeout(() => {
+      showNotification(
+        '💡 Tip: Check caps lock and ensure you\'re using the correct email/password.',
+        'info',
+        { duration: 3000 }
+      );
+    }, 500);
+    return;
+  }
+
+  // Successful login
+  currentUser = user;
+  
+  // Update last login time
+  user.lastLogin = new Date().toISOString();
+  localStorage.setItem('users', JSON.stringify(users));
+  localStorage.setItem('currentUser', JSON.stringify(user));
+
+  // Show personalized welcome message
+  const timeOfDay = new Date().getHours() < 12 ? 'morning' : 
+                   new Date().getHours() < 18 ? 'afternoon' : 'evening';
+  
+  showNotification(
+    `👋 Good ${timeOfDay}, ${user.name}! Welcome back to Mike's Library.`,
+    'auth-success',
+    { duration: 3500 }
+  );
+  
+  // Show role-specific message
+  setTimeout(() => {
+    const roleMsg = user.role === 'admin' ? 
+      'You have administrator privileges.' : 
+      'You can browse and borrow books.';
+    showNotification(
+      `${roleMsg} Redirecting to dashboard...`,
+      'success',
+      { duration: 2500 }
+    );
+  }, 1000);
+  
+  // Hide auth modal
+  const authModal = document.getElementById('authModal');
+  if (authModal) authModal.style.display = 'none';
+  
+  // Redirect to dashboard after a brief delay
+  setTimeout(() => {
+    redirectToDashboard();
+  }, 2500);
+  
+  setupRoleAccess();
 }
 
 function redirectToDashboard() {
