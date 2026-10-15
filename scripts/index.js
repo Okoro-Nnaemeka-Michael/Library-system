@@ -132,6 +132,230 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 // *** NEW: keep track of which book we're borrowing when the modal is open
 let borrowBookId = null;
 
+// ========== AI HEAT MAP VISUALIZATION ==========
+let categoryHeatMapChart = null;
+
+
+  // Compute heat map data based on the selected view mode
+
+function computeHeatMapData(viewMode = 'borrowed') {
+    const categories = {};
+
+    // Initialize categories from all books
+    sampleBooks.forEach(book => {
+        const cat = book.category || 'Uncategorized';
+        if (!categories[cat]) {
+            categories[cat] = { 
+                name: cat, 
+                inventoryCount: 0, 
+                borrowedCount: 0,
+                currentBorrowed: 0
+            };
+        }
+        categories[cat].inventoryCount++;
+        if (book.status === 'Borrowed') {
+            categories[cat].currentBorrowed++;
+        }
+    });
+
+    // Count total borrows by category from history
+    borrowHistory.forEach(record => {
+        const book = sampleBooks.find(b => b.id === record.bookId);
+        if (book) {
+            const cat = book.category || 'Uncategorized';
+            if (categories[cat]) {
+                categories[cat].borrowedCount++;
+            }
+        }
+    });
+
+    // Also count currently-borrowed books as one borrow each
+    sampleBooks.forEach(book => {
+        if (book.status === 'Borrowed') {
+            const cat = book.category || 'Uncategorized';
+            if (categories[cat]) {
+                categories[cat].borrowedCount++;
+            }
+        }
+    });
+
+    // Convert to array with score
+    const data = Object.values(categories).map(cat => {
+        let value = 0;
+        if (viewMode === 'borrowed') {
+            value = cat.borrowedCount;
+        } else if (viewMode === 'inventory') {
+            value = cat.inventoryCount;
+        } else { // popularity
+            // Popularity = borrows per book (ratio)
+            value = cat.inventoryCount > 0 
+                ? (cat.borrowedCount / cat.inventoryCount) 
+                : 0;
+        }
+        return {
+            ...cat,
+            value,
+            displayValue: viewMode === 'popularity' 
+                ? value.toFixed(2) + ' borrows/book'
+                : value + (viewMode === 'inventory' ? ' books' : ' borrows')
+        };
+    });
+
+    // Sort by value descending
+    return data.sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Get color based on heat intensity
+ */
+function getHeatColor(value, maxValue, alpha = 1) {
+    // Normalize 0-1
+    const ratio = maxValue > 0 ? value / maxValue : 0;
+    
+    let color;
+    if (ratio >= 0.7) {
+        // Hot
+        color = `rgba(255, 51, 51, ${alpha})`;
+    } else if (ratio >= 0.4) {
+        // Warm
+        color = `rgba(255, 204, 0, ${alpha})`;
+    } else if (ratio >= 0.15) {
+        // Mild
+        color = `rgba(138, 43, 226, ${alpha})`;
+    } else {
+        // Cool
+        color = `rgba(0, 204, 102, ${alpha})`;
+    }
+    return color;
+}
+
+/**
+ * Render the heat map using Chart.js
+ */
+function renderCategoryHeatMap(viewMode = 'borrowed') {
+    const canvas = document.getElementById('categoryHeatMap');
+    if (!canvas) return;
+
+    // Destroy previous chart if it exists
+    if (categoryHeatMapChart) {
+        categoryHeatMapChart.destroy();
+        categoryHeatMapChart = null;
+    }
+
+    const data = computeHeatMapData(viewMode);
+
+    if (data.length === 0) {
+        canvas.parentElement.innerHTML = `
+            <p style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                No data available for heat map yet.
+            </p>
+        `;
+        return;
+    }
+
+    const labels = data.map(d => d.name);
+    const values = data.map(d => d.value);
+    const maxValue = Math.max(...values);
+    const colors = values.map(v => getHeatColor(v, maxValue, 0.85));
+    const borderColors = values.map(v => getHeatColor(v, maxValue, 1));
+
+    // Detect theme
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#1f2937' : '#f0f0f0';
+    const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+
+    // Chart type depends on view mode
+    const isHorizontal = true; // Horizontal bars look better for categories
+
+    categoryHeatMapChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: viewMode === 'borrowed' ? 'Borrows' :
+                       viewMode === 'inventory' ? 'Books in inventory' :
+                       'Borrows per book',
+                data: values,
+                backgroundColor: colors,
+                borderColor: borderColors,
+                borderWidth: 2,
+                borderRadius: 6,
+                hoverBackgroundColor: borderColors
+            }]
+        },
+        options: {
+            indexAxis: isHorizontal ? 'y' : 'x', // horizontal bars
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: isLight ? 'rgba(0,0,0,0.85)' : 'rgba(30,30,30,0.95)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            const idx = context.dataIndex;
+                            const item = data[idx];
+                            return [
+                                `${item.displayValue}`,
+                                `Inventory: ${item.inventoryCount} books`,
+                                `Total borrows: ${item.borrowedCount}`,
+                                `Currently borrowed: ${item.currentBorrowed}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: textColor,
+                        font: { size: 12 }
+                    },
+                    grid: {
+                        color: gridColor
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: textColor,
+                        font: { size: 13, weight: '500' }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Initialize the heat map view selector
+ */
+function initHeatMapControls() {
+    const select = document.getElementById('heatMapViewSelect');
+    if (!select) return;
+
+    if (!select.dataset.listenerAttached) {
+        select.addEventListener('change', (e) => {
+            renderCategoryHeatMap(e.target.value);
+        });
+        select.dataset.listenerAttached = 'true';
+    }
+}
+
 // ========== UTILITY FUNCTIONS ==========
 function escapeHtml(str = '') {
   return String(str)
@@ -869,7 +1093,12 @@ function renderMembersTable() {
     return;
   }
   
-  tbody.innerHTML = members.map(member => `
+  tbody.innerHTML = members.map(member => {
+    const hasFace = member.faceDescriptor && Array.isArray(member.faceDescriptor);
+    const faceBtnText = hasFace ? '✅ Face' : '📸 Register Face';
+    const faceBtnStyle = hasFace ? 'color: var(--success);' : '';
+    
+    return `
     <tr>
       <td style="padding:12px 16px;">${member.id}</td>
       <td style="padding:12px 16px;">${escapeHtml(member.name)}</td>
@@ -879,10 +1108,11 @@ function renderMembersTable() {
       <td style="padding:12px 16px; text-align:center;">
         <button class="btn btn-outline view-member" data-id="${member.id}">View</button>
         <button class="btn btn-outline edit-member" data-id="${member.id}">Edit</button>
+        <button class="btn btn-outline register-face-btn" data-id="${member.id}" style="${faceBtnStyle}">${faceBtnText}</button>
         <button class="btn btn-outline delete-member" data-id="${member.id}" style="color:var(--danger);">Delete</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
   
   attachMemberEventListeners();
 }
@@ -907,6 +1137,14 @@ function attachMemberEventListeners() {
     btn.addEventListener('click', (e) => {
       const memberId = parseInt(e.target.dataset.id);
       confirmDeleteMember(memberId);
+    });
+  });
+
+  // ✅ NEW: Register Face button
+  document.querySelectorAll('.register-face-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const memberId = parseInt(e.target.dataset.id);
+      openFaceModal('register', memberId);
     });
   });
 }
@@ -1198,6 +1436,12 @@ function toggleTheme() {
     updateThemeToggleButton();
     updateSidebarThemeOptions();
     showNotification(`Switched to ${currentTheme} theme`, 'success');
+
+    if (document.getElementById('categoryHeatMap')) {
+        const select = document.getElementById('heatMapViewSelect');
+        renderCategoryHeatMap(select ? select.value : 'borrowed');
+    }
+    
 }
 
 function updateThemeToggleButton() {
@@ -1249,6 +1493,7 @@ function addThemeSectionToSidebar() {
         });
     });
 }
+
 
 function updateSidebarThemeOptions() {
     document.querySelectorAll('.theme-option').forEach(option => {
@@ -1543,6 +1788,353 @@ function saveSystemSettings() {
   closeModals();
 }
 
+// ========== AI FACIAL RECOGNITION ==========
+let faceModelsLoaded = false;
+let faceVideoStream = null;
+let faceDetectionInterval = null;
+let currentFaceMode = null; // 'register' or 'login'
+let faceRegisterMemberId = null;
+
+// Model URL (loaded from CDN — no downloads needed)
+const FACE_MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
+/**
+ * Load face-api.js models (once, cached after first load)
+ */
+async function loadFaceModels() {
+    if (faceModelsLoaded) return true;
+    if (typeof faceapi === 'undefined') {
+        console.warn('face-api.js not loaded yet');
+        return false;
+    }
+
+    try {
+        console.log('Loading face models...');
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(FACE_MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL)
+        ]);
+        faceModelsLoaded = true;
+        console.log('✅ Face models loaded');
+        return true;
+    } catch (err) {
+        console.error('❌ Failed to load face models:', err);
+        showNotification('Failed to load facial recognition models. Check your internet.', 'error');
+        return false;
+    }
+}
+
+/**
+ * Open the Face Recognition modal (register or login mode)
+ */
+async function openFaceModal(mode, memberId = null) {
+    currentFaceMode = mode;
+    faceRegisterMemberId = memberId;
+
+    // Ensure models are loaded
+    const loaded = await loadFaceModels();
+    if (!loaded) return;
+
+    // Update modal UI
+    const modal = document.getElementById('faceModal');
+    const title = document.getElementById('faceModalTitle');
+    const subtitle = document.getElementById('faceModalSubtitle');
+    const status = document.getElementById('faceStatus');
+    const actionBtn = document.getElementById('faceActionBtn');
+
+    if (!modal) return;
+
+    if (mode === 'register') {
+        const member = members.find(m => m.id === memberId);
+        title.textContent = 'Register Face';
+        subtitle.textContent = `Capturing face for: ${member ? member.name : 'Member'}`;
+        actionBtn.textContent = 'Capture & Save';
+    } else if (mode === 'login') {
+        title.textContent = 'Facial Recognition Login';
+        subtitle.textContent = 'Position your face in the frame';
+        actionBtn.textContent = 'Scan Face';
+    }
+
+    status.textContent = 'Starting camera...';
+    status.className = '';
+
+    openModal('faceModal');
+    await startFaceCamera();
+
+    // Start live detection preview
+    startFacePreview();
+}
+
+/**
+ * Start the webcam stream
+ */
+async function startFaceCamera() {
+    const video = document.getElementById('faceVideo');
+    if (!video) return;
+
+    try {
+        faceVideoStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 480, height: 360, facingMode: 'user' },
+            audio: false
+        });
+        video.srcObject = faceVideoStream;
+        await video.play();
+
+        const status = document.getElementById('faceStatus');
+        if (status) {
+            status.textContent = '📸 Camera ready. Position your face.';
+            status.className = 'success';
+        }
+    } catch (err) {
+        console.error('Camera error:', err);
+        const status = document.getElementById('faceStatus');
+        if (status) {
+            status.textContent = '❌ Cannot access camera. Allow camera access and try again.';
+            status.className = 'error';
+        }
+        showNotification('Camera access denied', 'error');
+    }
+}
+
+/**
+ * Live preview: draw a box around the detected face
+ */
+function startFacePreview() {
+    const video = document.getElementById('faceVideo');
+    const canvas = document.getElementById('faceCanvas');
+    const status = document.getElementById('faceStatus');
+    if (!video || !canvas) return;
+
+    // Stop any previous interval
+    if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+
+    faceDetectionInterval = setInterval(async () => {
+        if (video.readyState !== 4 || !faceModelsLoaded) return;
+
+        try {
+            const detection = await faceapi
+                .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                .withFaceLandmarks();
+
+            // Match canvas size to video
+            const displaySize = { width: video.videoWidth, height: video.videoHeight };
+            if (displaySize.width === 0 || displaySize.height === 0) return;
+            faceapi.matchDimensions(canvas, displaySize);
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (detection) {
+                const resized = faceapi.resizeResults(detection, displaySize);
+                const box = resized.detection.box;
+                ctx.strokeStyle = '#00cc66';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                if (status && currentFaceMode) {
+                    status.textContent = '✅ Face detected. Click the action button to proceed.';
+                    status.className = 'success';
+                }
+            } else {
+                if (status && currentFaceMode) {
+                    status.textContent = '🔍 No face detected. Move closer to the camera.';
+                    status.className = 'listening';
+                }
+            }
+        } catch (e) {
+            // Silent — just skip frames that error out
+        }
+    }, 300);
+}
+
+/**
+ * Stop camera and detection
+ */
+function stopFaceCamera() {
+    if (faceDetectionInterval) {
+        clearInterval(faceDetectionInterval);
+        faceDetectionInterval = null;
+    }
+    if (faceVideoStream) {
+        faceVideoStream.getTracks().forEach(t => t.stop());
+        faceVideoStream = null;
+    }
+    const video = document.getElementById('faceVideo');
+    if (video) video.srcObject = null;
+    const canvas = document.getElementById('faceCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+/**
+ * Capture face descriptor from current video frame
+ */
+async function captureFaceDescriptor() {
+    const video = document.getElementById('faceVideo');
+    if (!video || video.readyState !== 4) return null;
+
+    try {
+        const detection = await faceapi
+            .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+
+        if (!detection) return null;
+        return Array.from(detection.descriptor); // Convert Float32Array → regular array
+    } catch (err) {
+        console.error('Capture error:', err);
+        return null;
+    }
+}
+
+/**
+ * Handle the action button inside the face modal
+ */
+async function handleFaceAction() {
+    const status = document.getElementById('faceStatus');
+    const actionBtn = document.getElementById('faceActionBtn');
+
+    if (!currentFaceMode) return;
+
+    if (actionBtn) actionBtn.disabled = true;
+    status.textContent = '⏳ Processing...';
+    status.className = '';
+
+    const descriptor = await captureFaceDescriptor();
+
+    if (!descriptor) {
+        status.textContent = '❌ No face detected. Please adjust your position and try again.';
+        status.className = 'error';
+        if (actionBtn) actionBtn.disabled = false;
+        return;
+    }
+
+    if (currentFaceMode === 'register') {
+        // Save descriptor to member
+        const member = members.find(m => m.id === faceRegisterMemberId);
+        if (!member) {
+            status.textContent = '❌ Member not found.';
+            status.className = 'error';
+            if (actionBtn) actionBtn.disabled = false;
+            return;
+        }
+
+        member.faceDescriptor = descriptor;
+        saveData();
+        renderMembersTable();
+
+        status.textContent = `✅ Face registered for ${member.name}!`;
+        status.className = 'success';
+        showNotification(`Face registered for ${member.name}`, 'success');
+
+        setTimeout(() => {
+            closeFaceModal();
+        }, 2000);
+
+    } else if (currentFaceMode === 'login') {
+        // Compare with all registered members
+        const matched = findMatchingMember(descriptor);
+
+        if (matched) {
+            status.textContent = `✅ Welcome, ${matched.name}! (Distance: ${matched.distance.toFixed(3)})`;
+            status.className = 'success';
+            showNotification(`Authenticated as ${matched.name}`, 'success');
+
+            // If we were in the middle of a borrow, complete it
+            if (borrowBookId) {
+                setTimeout(() => {
+                    closeFaceModal();
+                    completeBorrowWithMember(matched.member, borrowBookId);
+                }, 1500);
+            } else {
+                setTimeout(() => {
+                    closeFaceModal();
+                }, 2000);
+            }
+        } else {
+            status.textContent = '❌ Face not recognized. Please register first or try again.';
+            status.className = 'error';
+            if (actionBtn) actionBtn.disabled = false;
+        }
+    }
+}
+
+/**
+ * Compare a face descriptor against all registered members
+ * Uses Euclidean distance; threshold 0.6 (standard for face-api.js)
+ */
+function findMatchingMember(descriptor) {
+    let bestMatch = null;
+    let bestDistance = Infinity;
+    const THRESHOLD = 0.55;
+
+    const descFloat = new Float32Array(descriptor);
+
+    members.forEach(member => {
+        if (!member.faceDescriptor || !Array.isArray(member.faceDescriptor)) return;
+        const memberDesc = new Float32Array(member.faceDescriptor);
+        const distance = faceapi.euclideanDistance(descFloat, memberDesc);
+
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMatch = member;
+        }
+    });
+
+    if (bestMatch && bestDistance < THRESHOLD) {
+        return { member: bestMatch, distance: bestDistance };
+    }
+    return null;
+}
+
+/**
+ * Close the face modal and clean up
+ */
+function closeFaceModal() {
+    stopFaceCamera();
+    currentFaceMode = null;
+    faceRegisterMemberId = null;
+    closeModals();
+}
+
+/**
+ * Complete a borrow using an authenticated member (used by face login)
+ */
+function completeBorrowWithMember(member, bookId) {
+    const book = sampleBooks.find(b => b.id === bookId);
+    if (!book || book.status === 'Borrowed') {
+        showNotification('Book not available', 'error');
+        return;
+    }
+
+    const borrowDate = new Date();
+    const dueDate = new Date(borrowDate);
+    dueDate.setDate(borrowDate.getDate() + 14);
+
+    book.status = 'Borrowed';
+    book.borrowedBy = member.name;
+    book.borrowDate = borrowDate.toISOString().split('T')[0];
+    book.dueDate = dueDate.toISOString().split('T')[0];
+
+    borrowHistory.push({
+        id: borrowHistory.length + 1,
+        bookId: book.id,
+        memberId: member.id,
+        bookTitle: book.title,
+        memberName: member.name,
+        borrowDate: book.borrowDate,
+        dueDate: book.dueDate,
+        returnDate: null
+    });
+
+    saveData();
+    refreshUI();
+    showNotification(`"${book.title}" borrowed by ${member.name} via face login`, 'success');
+    borrowBookId = null;
+}
 
 // ========== VOICE SEARCH AI FEATURE (IMPROVED) ==========
 let voiceRecognition = null;
@@ -2210,10 +2802,13 @@ function refreshUI() {
   }
   
   if (currentPage === 'report') {
-    updateReportsStats();
-    renderCategoryDistribution();
-    renderBorrowingActivity();
+      updateReportsStats();
+      renderCategoryDistribution();
+      renderBorrowingActivity();
+      initHeatMapControls();           // ✅ ADD THIS
+      renderCategoryHeatMap('borrowed'); // ✅ ADD THIS
   }
+
 }
 
 function setupPageSpecificListeners() {
@@ -2505,6 +3100,16 @@ function setupGlobalListeners() {
       e.preventDefault();
       toggleAuthMode();
     });
+  }
+
+  // Face login button in borrow modal
+  const faceLoginBtn = document.getElementById('faceLoginBtn');
+  if (faceLoginBtn && !faceLoginBtn.dataset.listenerAttached) {
+      faceLoginBtn.addEventListener('click', () => {
+          closeModals();
+          openFaceModal('login');
+      });
+      faceLoginBtn.dataset.listenerAttached = 'true';
   }
 
   const authForm = document.getElementById('authForm');

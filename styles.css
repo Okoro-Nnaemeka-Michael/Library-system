@@ -1075,6 +1075,23 @@ footer {
     }
 }
 
+/* ===== FACIAL RECOGNITION STYLES ===== */
+#faceModal video {
+    transform: scaleX(-1); /* Mirror for user comfort */
+}
+
+#faceModal canvas {
+    transform: scaleX(-1); /* Mirror so it aligns with video */
+}
+
+#faceStatus.success { color: var(--success); font-weight: 500; }
+#faceStatus.error   { color: var(--danger);  font-weight: 500; }
+#faceStatus.listening { color: var(--warning); font-weight: 500; }
+
+.register-face-btn {
+    font-size: 0.8rem;
+}
+
 /* ============================
    MOBILE RESPONSIVE STYLES
    ============================ */
