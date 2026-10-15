@@ -1316,6 +1316,211 @@ function saveSystemSettings() {
   closeModals();
 }
 
+
+// ========== VOICE SEARCH AI FEATURE (IMPROVED) ==========
+let voiceRecognition = null;
+let isVoiceListening = false;
+let voiceRestartCount = 0;
+const MAX_RESTARTS = 3;
+
+function initVoiceSearch() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    const voiceBtn = document.getElementById('voiceSearchBtn');
+    if (voiceBtn) {
+      voiceBtn.disabled = true;
+      voiceBtn.title = 'Voice search not supported. Use Chrome.';
+      voiceBtn.style.opacity = '0.5';
+    }
+    console.warn('Web Speech API not supported.');
+    return;
+  }
+
+  // Check for HTTPS / localhost (Web Speech API requires secure context)
+  const isSecure = location.protocol === 'https:' || 
+                   location.hostname === 'localhost' || 
+                   location.hostname === '127.0.0.1';
+  
+  if (!isSecure) {
+    console.warn('Web Speech API requires HTTPS or localhost.');
+    showNotification('⚠️ Voice search requires HTTPS. Please use a secure connection.', 'warning');
+  }
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;   // ✅ Show partial results while speaking
+  voiceRecognition.lang = 'en-US';
+  voiceRecognition.maxAlternatives = 1;
+
+  const voiceBtn = document.getElementById('voiceSearchBtn');
+  const voiceStatus = document.getElementById('voiceStatus');
+  const searchInput = document.getElementById('searchInput');
+
+  if (!voiceBtn) return;
+
+  // ✅ Mic button click handler
+  voiceBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (isVoiceListening) {
+      voiceRecognition.stop();
+    } else {
+      voiceRestartCount = 0;
+      startVoiceRecognition();
+    }
+  });
+
+  // ✅ Helper: start recognition with error handling
+  function startVoiceRecognition() {
+    try {
+      voiceRecognition.start();
+    } catch (err) {
+      // If it's already started, stop and retry
+      if (err.name === 'InvalidStateError') {
+        voiceRecognition.stop();
+        setTimeout(() => {
+          try { voiceRecognition.start(); } catch (e) { console.error(e); }
+        }, 300);
+      } else {
+        console.error('Voice start error:', err);
+        showNotification('Could not start voice search. Try again.', 'error');
+      }
+    }
+  }
+
+  // ✅ When recognition starts
+  voiceRecognition.onstart = () => {
+    isVoiceListening = true;
+    voiceBtn.classList.add('listening');
+    voiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+    if (voiceStatus) {
+      voiceStatus.textContent = '🎤 Listening... Speak now (you have ~8 seconds).';
+      voiceStatus.className = 'listening';
+    }
+  };
+
+  // ✅ When partial or final speech is recognized
+  voiceRecognition.onresult = (event) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // Show what we're hearing in real-time
+    if (voiceStatus) {
+      if (interimTranscript) {
+        voiceStatus.textContent = `🎤 Hearing: "${interimTranscript}"...`;
+        voiceStatus.className = 'listening';
+      }
+    }
+
+    // Once we have a final result, use it
+    if (finalTranscript) {
+      const transcript = finalTranscript.trim();
+      const confidence = event.results[event.results.length - 1][0].confidence;
+
+      if (voiceStatus) {
+        voiceStatus.textContent = `✅ You said: "${transcript}" (${Math.round(confidence * 100)}% confidence)`;
+        voiceStatus.className = 'success';
+      }
+
+      if (searchInput) {
+        searchInput.value = transcript;
+        handleBookSearch();
+      }
+
+      showNotification(`Voice search: "${transcript}"`, 'success');
+    }
+  };
+
+  // ✅ When recognition ends
+  voiceRecognition.onend = () => {
+    isVoiceListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+
+    // If no result and we haven't reached max restarts, keep trying
+    if (voiceRestartCount < MAX_RESTARTS && voiceStatus && 
+        !voiceStatus.classList.contains('success') && 
+        voiceStatus.classList.contains('listening')) {
+      // Don't auto-restart — just clear status after 4 seconds
+    }
+
+    setTimeout(() => {
+      if (voiceStatus && !voiceStatus.classList.contains('success')) {
+        voiceStatus.textContent = '';
+        voiceStatus.className = '';
+      }
+    }, 4000);
+  };
+
+  // ✅ Improved error handling
+  voiceRecognition.onerror = (event) => {
+    console.warn('Voice error:', event.error);
+
+    // 🔑 KEY FIX: If "no-speech", restart ONCE automatically (Chrome often fires this too early)
+    if (event.error === 'no-speech') {
+      if (voiceRestartCount < 2) {
+        voiceRestartCount++;
+        console.log(`No speech detected. Auto-retrying (${voiceRestartCount}/2)...`);
+        if (voiceStatus) {
+          voiceStatus.textContent = `🎤 Listening... (attempt ${voiceRestartCount + 1})`;
+          voiceStatus.className = 'listening';
+        }
+        // Restart after a short delay
+        setTimeout(() => {
+          try { voiceRecognition.start(); } catch (e) { console.error(e); }
+        }, 400);
+        return; // Don't show error yet
+      }
+    }
+
+    // For other errors, show them and stop
+    isVoiceListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+
+    let errorMsg = 'Voice search error.';
+    switch (event.error) {
+      case 'no-speech':
+        errorMsg = '❌ No speech detected. Make sure your mic is working and try again.';
+        break;
+      case 'audio-capture':
+        errorMsg = '❌ No microphone found. Check your device settings.';
+        break;
+      case 'not-allowed':
+        errorMsg = '❌ Microphone access denied. Click the 🔒 icon in the address bar and allow mic access.';
+        break;
+      case 'network':
+        errorMsg = '❌ Network error. Check your internet connection.';
+        break;
+      case 'aborted':
+        errorMsg = '🎤 Voice search cancelled.';
+        break;
+      case 'service-not-allowed':
+        errorMsg = '❌ Speech service not allowed. Try reloading the page.';
+        break;
+      default:
+        errorMsg = `❌ Error: ${event.error}`;
+    }
+
+    if (voiceStatus) {
+      voiceStatus.textContent = errorMsg;
+      voiceStatus.className = 'error';
+    }
+
+    showNotification(errorMsg, 'error', { duration: 5000 });
+  };
+}
+
+
 // ========== SEARCH FUNCTIONALITY ==========
 function handleDashboardSearch() {
   const searchInput = document.getElementById("searchInput");
@@ -2131,6 +2336,7 @@ function initializeApp() {
   initializeTheme()
   setupPageSpecificListeners();
   refreshUI();
+  initVoiceSearch();
 
   const currentPage = getCurrentPage();
 
