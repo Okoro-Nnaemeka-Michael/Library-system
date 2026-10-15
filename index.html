@@ -159,7 +159,26 @@
                         <!-- Books will be dynamically inserted here -->
                     </div>
                 </div>
-            </div>
+
+                <!-- AI Recommendations Card -->
+                <div class="card" style="margin-top: 2rem;">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-magic" style="color: var(--accent);"></i>
+                            Recommended For You
+                        </h2>
+                        <select id="recommendationMemberSelect" style="padding: 0.5rem; border-radius: 4px; background: var(--darker-bg); color: var(--text-primary); border: 1px solid #333;">
+                            <option value="">Select a member to see recommendations...</option>
+                        </select>
+                    </div>
+                    <div id="recommendationsContainer" class="books-grid" style="margin-top: 1rem;">
+                        <p style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                            <i class="fas fa-info-circle"></i>
+                            Select a member above to see personalized book recommendations.
+                        </p>
+                    </div>
+                </div>
+                            </div>
             
             <div id="books-section" style="display: none;">
                 <h1>Books Catalog</h1>

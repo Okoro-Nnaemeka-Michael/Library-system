@@ -260,6 +260,233 @@ function saveData() {
   localStorage.setItem('borrowHistory', JSON.stringify(borrowHistory));
 }
 
+// ========== AI BOOK RECOMMENDATION ENGINE ==========
+let currentRecommendationMember = null;
+
+/**
+ * Populate the recommendation member selector
+ */
+function populateRecommendationSelector() {
+    const select = document.getElementById('recommendationMemberSelect');
+    if (!select) return;
+
+    // Preserve current selection
+    const currentValue = select.value;
+
+    // Clear and repopulate
+    select.innerHTML = '<option value="">Select a member to see recommendations...</option>';
+    
+    members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        select.appendChild(opt);
+    });
+
+    // Restore selection if still valid
+    if (currentValue && members.some(m => m.id === parseInt(currentValue))) {
+        select.value = currentValue;
+    }
+
+    // Attach change handler (only once)
+    if (!select.dataset.listenerAttached) {
+        select.addEventListener('change', (e) => {
+            const memberId = parseInt(e.target.value);
+            if (memberId) {
+                currentRecommendationMember = memberId;
+                renderRecommendations(memberId);
+            } else {
+                currentRecommendationMember = null;
+                showRecommendationPlaceholder();
+            }
+        });
+        select.dataset.listenerAttached = 'true';
+    }
+}
+
+/**
+ * Show placeholder when no member is selected
+ */
+function showRecommendationPlaceholder() {
+    const container = document.getElementById('recommendationsContainer');
+    if (!container) return;
+    container.innerHTML = `
+        <p style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+            <i class="fas fa-info-circle"></i>
+            Select a member above to see personalized book recommendations.
+        </p>
+    `;
+}
+
+/**
+ * Main recommendation function — hybrid approach
+ */
+function renderRecommendations(memberId) {
+    const container = document.getElementById('recommendationsContainer');
+    if (!container) return;
+
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+
+    const recommendations = generateRecommendations(member);
+
+    if (recommendations.length === 0) {
+        container.innerHTML = `
+            <p style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                <i class="fas fa-search"></i>
+                No recommendations available yet. ${member.name} needs to borrow a few books first.
+            </p>
+        `;
+        return;
+    }
+
+    // Render recommendation cards with reason badges
+    container.innerHTML = '';
+    recommendations.forEach(rec => {
+        const card = createRecommendationCard(rec.book, rec.reason, rec.score);
+        container.appendChild(card);
+    });
+}
+
+/**
+ * Core recommendation algorithm
+ * Combines: Content-Based + Collaborative + Popularity
+ */
+function generateRecommendations(member, limit = 4) {
+    // 1. Get the member's borrowing history
+    const memberHistory = borrowHistory.filter(h => h.memberId === member.id);
+    const memberBookIds = new Set(memberHistory.map(h => h.bookId));
+
+    // Also check books currently borrowed by name (fallback)
+    sampleBooks.forEach(b => {
+        if (b.borrowedBy === member.name) memberBookIds.add(b.id);
+    });
+
+    // 2. Get books the member has read (for content-based)
+    const readBooks = sampleBooks.filter(b => memberBookIds.has(b.id));
+    const readAuthors = new Set(readBooks.map(b => b.author));
+    const readCategories = new Set(readBooks.map(b => b.category));
+
+    // 3. Build candidate pool — books the member hasn't read
+    const candidates = sampleBooks.filter(b => !memberBookIds.has(b.id));
+
+    // 4. Score each candidate
+    const scored = candidates.map(book => {
+        let score = 0;
+        let reasons = [];
+
+        // Content-Based: same author
+        if (readAuthors.has(book.author)) {
+            score += 40;
+            reasons.push(`Same author as a book you've read`);
+        }
+
+        // Content-Based: same category
+        if (readCategories.has(book.category)) {
+            score += 20;
+            reasons.push(`In your favorite category: ${book.category}`);
+        }
+
+        // Collaborative: borrowed by similar members
+        const similarMembers = members.filter(m => m.id !== member.id);
+        similarMembers.forEach(other => {
+            const otherHistory = borrowHistory.filter(h => h.memberId === other.id);
+            const otherBooks = new Set(otherHistory.map(h => h.bookId));
+            // If they borrowed a book you also read, they're "similar"
+            const overlap = [...memberBookIds].filter(id => otherBooks.has(id));
+            if (overlap.length > 0 && otherBooks.has(book.id)) {
+                score += 15;
+                if (!reasons.includes(`Popular with members like you`)) {
+                    reasons.push(`Popular with members like you`);
+                }
+            }
+        });
+
+        // Popularity: how many times has this book been borrowed total?
+        const totalBorrows = borrowHistory.filter(h => h.bookId === book.id).length;
+        if (totalBorrows > 0) {
+            score += totalBorrows * 5;
+        }
+        if (totalBorrows >= 2) {
+            reasons.push(`Borrowed ${totalBorrows} times`);
+        }
+
+        // Bonus: Available books are more useful to recommend
+        if (book.status === 'Available') {
+            score += 10;
+        }
+
+        // If nothing matched, just give it a baseline score for popularity
+        if (score === 0) {
+            score = 1;
+            reasons.push('New addition to the library');
+        }
+
+        return {
+            book,
+            score,
+            reason: reasons[0] || 'Recommended for you'
+        };
+    });
+
+    // 5. Sort by score (descending) and return top N
+    return scored
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+}
+
+/**
+ * Create a recommendation card with a reason badge
+ */
+function createRecommendationCard(book, reason, score) {
+    const div = document.createElement('div');
+    div.className = 'book-card recommendation-card';
+
+    const statusClass = book.status === 'Borrowed' ? 'status-borrowed' : 'status-available';
+    const buttonText = book.status === 'Available' ? 'Borrow' : 'Borrowed';
+    const buttonDisabled = book.status === 'Borrowed' ? 'disabled' : '';
+
+    div.innerHTML = `
+        <div class="book-cover" style="background: linear-gradient(45deg, var(--accent), var(--accent-light));">
+            <i class="fas fa-magic"></i>
+        </div>
+        <div class="book-details">
+            <div class="recommendation-badge" title="Why we recommend this">
+                <i class="fas fa-lightbulb"></i> ${escapeHtml(reason)}
+            </div>
+            <h3 class="book-title">${escapeHtml(book.title)}</h3>
+            <p class="book-author">${escapeHtml(book.author)}</p>
+            <div class="book-meta">
+                <span class="book-year">${book.year}</span>
+                <span class="${statusClass}">${escapeHtml(book.status)}</span>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="btn btn-primary rec-borrow-btn" ${buttonDisabled} data-book-id="${book.id}">
+                    <i class="fas fa-book-reader"></i> ${buttonText}
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Attach borrow handler
+    const btn = div.querySelector('.rec-borrow-btn');
+    if (btn && !buttonDisabled) {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            borrowBook(book.id);
+        });
+    }
+
+    // Attach details handler
+    div.addEventListener('click', (e) => {
+        if (!e.target.closest('.rec-borrow-btn')) {
+            showBookDetails(book);
+        }
+    });
+
+    return div;
+}
+
 // ========== PAGE DETECTION ==========
 function getCurrentPage() {
   const path = window.location.pathname;
@@ -1970,6 +2197,11 @@ function refreshUI() {
     renderBooks();
     if (currentPage === 'dashboard') {
       updateDashboardStats();
+      populateRecommendationSelector();   // ✅ ADD THIS
+      // If a member was selected, re-render their recommendations
+      if (currentRecommendationMember) {
+          renderRecommendations(currentRecommendationMember);
+      }
     }
   }
   
