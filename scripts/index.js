@@ -115,9 +115,12 @@ document.addEventListener('click', (e) => {
 // ========== DATA MANAGEMENT ==========
 const sampleBooks = [
   {id: 1, title: 'The Midnight Library', author: 'Matt Haig', year: 2020, status: 'Available', isbn: '978-1786892707', category: 'Fiction', description: 'A novel about all the choices that go into a life well lived.', borrowedBy: null},
-  {id: 2, title: 'Project Hail Mary', author: 'Andy Weir', year: 2021, status: 'Borrowed', isbn: '978-0593135204', category: 'Science Fiction', description: 'A lone astronaut must save the earth from disaster...', borrowedBy: 'John Doe'},
+  {id: 2, title: 'Project Hail Mary', author: 'Andy Weir', year: 2021, status: 'Borrowed', isbn: '978-0593135204', category: 'Science Fiction', description: 'A lone astronaut must save the earth from disaster...', borrowedBy: 'null'},
   {id: 3, title: 'The Silent Patient', author: 'Alex Michaelides', year: 2019, status: 'Available', isbn: '978-1250301697', category: 'Mystery', description: 'A psychological thriller...', borrowedBy: null},
-  {id: 4, title: 'Dune', author: 'Frank Herbert', year: 1965, status: 'Available', isbn: '978-0441172719', category: 'Science Fiction', description: 'A masterpiece of world-building...', borrowedBy: null}
+  {id: 4, title: 'Dune', author: 'Frank Herbert', year: 1965, status: 'Available', isbn: '978-0441172719', category: 'Science Fiction', description: 'A masterpiece of world-building...', borrowedBy: null},
+  {id: 5, title: 'Introduction to Artificial Intelligence and Expert sysytems', author: 'Prof E.O Nwachukwu', year: 2005, status: 'Available', isbn: '978-2514-69-6', category: 'Non-Fiction', description: 'A University of Port Harcourt Textbook...', borrowedBy: null},
+  {id: 6, title: 'Computer Graphics', author: 'Edward E. Ogheneovo', year: 2021, status: 'Available', isbn: '978-978-69893-4-1', category: 'Non-Fiction', description: 'A Computer Science Textbook', borrowedBy: null},
+  {id: 7, title: 'Computer Modeling and Simulation', author: 'Edward E. Ogheneovo', year: 2019, status: 'Available', isbn: '978-978-603448-1-1', category: 'Non-Fiction', description: 'A textbook for all Final Year Students...', borrowedBy: null}
 ];
 
 let members = [
@@ -748,6 +751,136 @@ function setupDashboardNavigation() {
       });
     });
   });
+}
+
+// ========== COMPUTER VISION: BARCODE SCANNER ==========
+let html5QrCode = null;
+
+function openScanner() {
+    const modal = document.getElementById('scannerModal');
+    const status = document.getElementById('scannerStatus');
+    if (!modal) return;
+
+    openModal('scannerModal');
+    if (status) {
+        status.textContent = "Point camera at barcode...";
+        status.style.color = "var(--text-primary)";
+    }
+
+    // Ensure any existing scanner is stopped before starting a new one
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            startScannerEngine(status);
+        }).catch(() => {
+            startScannerEngine(status);
+        });
+    } else {
+        startScannerEngine(status);
+    }
+}
+
+function startScannerEngine(statusEl) {
+    // Create a fresh instance
+    html5QrCode = new Html5Qrcode("reader");
+
+    // Make the scan area bigger and focus specifically on standard formats
+    const config = { 
+        fps: 10, 
+        qrbox: { width: 300, height: 150 },
+        formatsToSupport: [ 
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.EAN_13, 
+            Html5QrcodeSupportedFormats.EAN_8, 
+            Html5QrcodeSupportedFormats.UPC_A 
+        ]
+    };
+
+    html5QrCode.start(
+        { facingMode: "environment" }, 
+        config,
+        (decodedText) => {
+            // Success! 
+            handleBarcodeScanned(decodedText);
+        },
+        (errorMessage) => {
+            // Ignore constant scanning errors
+        }
+    ).catch((err) => {
+        console.error("Camera start error:", err);
+        if (statusEl) {
+            statusEl.textContent = "❌ Camera access denied. Please use manual entry below.";
+            statusEl.style.color = "var(--danger)";
+        }
+    });
+}
+
+function closeScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            html5QrCode.clear();
+            html5QrCode = null;
+            closeModals();
+        }).catch(err => {
+            console.error("Failed to stop scanner", err);
+            closeModals();
+        });
+    } else {
+        closeModals();
+    }
+}
+
+function handleBarcodeScanned(isbnCode) {
+    // 1. Instantly stop scanning so it doesn't scan 50 times
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            processScannedIsbn(isbnCode);
+        }).catch(err => {
+            processScannedIsbn(isbnCode);
+        });
+    } else {
+        processScannedIsbn(isbnCode);
+    }
+}
+
+function processScannedIsbn(isbnCode) {
+    const status = document.getElementById('scannerStatus');
+    
+    // Clean the input (remove hyphens and spaces) to ensure match
+    const cleanScannedIsbn = isbnCode.replace(/[^0-9X]/gi, '');
+    
+    if (status) {
+        status.textContent = `✅ Scanned: ${isbnCode}`;
+        status.style.color = "var(--success)";
+    }
+
+    // 2. Search the database, cleaning the database ISBN too
+    const book = sampleBooks.find(b => {
+        if (!b.isbn) return false;
+        const cleanDbIsbn = b.isbn.replace(/[^0-9X]/gi, '');
+        return cleanDbIsbn === cleanScannedIsbn;
+    });
+
+    if (book) {
+        setTimeout(() => {
+            closeScanner();
+            showNotification(`Book Found: ${book.title}`, 'success');
+            // Automatically open the borrow modal!
+            openBorrowModal(book.id);
+        }, 1000);
+    } else {
+        if (status) {
+            status.textContent = `❌ ISBN ${isbnCode} not found in library.`;
+            status.style.color = "var(--warning)";
+        }
+        setTimeout(() => {
+            // If using manual entry, don't close immediately so they can retry
+            if(document.getElementById('manualIsbnInput').value) {
+                 document.getElementById('manualIsbnInput').value = '';
+            } else {
+                 closeScanner();
+            }
+        }, 3000);
+    }
 }
 
 // ========== SIDEBAR NAVIGATION ==========
@@ -2815,8 +2948,9 @@ function refreshUI() {
       updateReportsStats();
       renderCategoryDistribution();
       renderBorrowingActivity();
-      initHeatMapControls();           // ✅ ADD THIS
-      renderCategoryHeatMap('borrowed'); // ✅ ADD THIS
+      initHeatMapControls();         
+      renderCategoryHeatMap('borrowed'); 
+      generateDemandForecast();
   }
 
 }
@@ -3115,6 +3249,86 @@ function setupFaceButtons() {
     }
 }
 
+// ========== AI PREDICTIVE ANALYTICS ==========
+function generateDemandForecast() {
+    const container = document.getElementById('predictiveAnalyticsContainer');
+    if (!container) return;
+
+    // 1. If there's no history, we can't predict anything
+    if (borrowHistory.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">Not enough borrowing data to generate predictions.</p>';
+        return;
+    }
+
+    // 2. Calculate historical borrows per category
+    const categoryCounts = {};
+    borrowHistory.forEach(record => {
+        const book = sampleBooks.find(b => b.id === record.bookId);
+        if (book) {
+            const cat = book.category || 'Uncategorized';
+            categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        }
+    });
+
+    // 3. Find the average borrow rate
+    const categories = Object.keys(categoryCounts);
+    if (categories.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">No categorized data available for predictions.</p>';
+        return;
+    }
+
+    let totalBorrows = 0;
+    categories.forEach(cat => totalBorrows += categoryCounts[cat]);
+    const averageBorrows = totalBorrows / categories.length;
+
+    // 4. Generate predictions based on relative demand
+    // We sort them by highest demand
+    const sortedCategories = categories.sort((a, b) => categoryCounts[b] - categoryCounts[a]);
+
+    let html = '';
+    sortedCategories.forEach((cat, index) => {
+        const count = categoryCounts[cat];
+        let predictionText = '';
+        let badgeColor = '';
+        
+        if (count > averageBorrows * 1.5) {
+            predictionText = "High Demand Expected";
+            badgeColor = "var(--danger)";
+        } else if (count > averageBorrows) {
+            predictionText = "Steady Demand Expected";
+            badgeColor = "var(--warning)";
+        } else {
+            predictionText = "Low Demand Expected";
+            badgeColor = "var(--success)";
+        }
+
+        // Calculate a fake "confidence" score based on data volume
+        const confidence = Math.min(70 + (count * 5), 98);
+
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--darker-bg); margin-bottom: 0.5rem; border-radius: 6px;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span style="font-weight: bold; font-size: 1.2rem; color: var(--text-secondary);">#${index + 1}</span>
+                    <div>
+                        <h4 style="margin: 0; color: var(--text-primary);">${escapeHtml(cat)}</h4>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Historically borrowed ${count} times</span>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="display: block; font-size: 0.85rem; font-weight: bold; color: ${badgeColor}; margin-bottom: 0.2rem;">
+                        ${predictionText}
+                    </span>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                        Confidence: ${confidence}%
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
 // Add these to your global functions
 window.showOverdueBooksReport = showOverdueBooksReport;
 window.generateReport = generateReport;
@@ -3191,6 +3405,17 @@ function setupGlobalListeners() {
     confirmBorrowBtn.addEventListener('click', () => {
       confirmBorrow(borrowBookId);
     });
+
+    // Computer Vision Scanner
+  const openScannerBtn = document.getElementById('openScannerBtn');
+  if (openScannerBtn) {
+      openScannerBtn.addEventListener('click', openScanner);
+  }
+  
+  const closeScannerBtn = document.getElementById('closeScannerBtn');
+  if (closeScannerBtn) {
+      closeScannerBtn.addEventListener('click', closeScanner);
+  }
   }
 
   // Close modals when clicking outside
@@ -3199,6 +3424,17 @@ function setupGlobalListeners() {
       closeModals();
     }
   });
+
+    // Manual ISBN Entry Fallback
+  const manualIsbnBtn = document.getElementById('manualIsbnBtn');
+  if (manualIsbnBtn) {
+      manualIsbnBtn.addEventListener('click', () => {
+          const isbn = document.getElementById('manualIsbnInput').value.trim();
+          if (isbn) {
+              handleBarcodeScanned(isbn);
+          }
+      });
+  }
 }
 
 
@@ -3211,7 +3447,7 @@ function initializeApp() {
   initializeTheme()
   setupPageSpecificListeners();
   refreshUI();
-  
+
   initVoiceSearch();
   setupFaceButtons();
 

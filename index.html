@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <link rel="stylesheet" href="styles.css">   
 </head>
 <body>
@@ -120,6 +121,11 @@
                         <i class="fas fa-microphone"></i>
                     </button>
                     <button id="searchBtn"><i class="fas fa-search"></i></button>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn btn-primary" id="openScannerBtn" style="width: 100%;">
+                        <i class="fas fa-camera"></i> Scan Book Barcode (Computer Vision)
+                    </button>
                 </div>
 <div id="voiceStatus" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary); min-height: 1.2rem;"></div>
 
@@ -408,6 +414,31 @@
             </div>
         </div>
     </div>
+
+    <!-- Computer Vision Scanner Modal -->
+    <div class="modal" id="scannerModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">📷 Scan Book Barcode</h2>
+                <button class="close-modal" id="closeScannerBtn">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; text-align: center;">
+                Point your camera at the barcode on the back of the book.
+            </p>
+                    <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; border: 2px solid var(--accent);"></div>
+        
+                    <!-- MANUAL FALLBACK -->
+                    <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Having trouble scanning? Enter ISBN manually:</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="manualIsbnInput" placeholder="e.g. 978-0441172719" style="flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #333; background: var(--darker-bg); color: var(--text-primary);">
+                        <button class="btn btn-primary" id="manualIsbnBtn">Submit</button>
+                    </div>
+                </div>
+            <div id="scannerStatus" style="text-align: center; margin-top: 1rem; font-weight: bold;"></div>
+        </div>
+    </div>
+
     <script type="module" src="scripts/index.js"></script>
 </body>
 </html>
